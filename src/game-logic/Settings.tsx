@@ -116,7 +116,7 @@ export function TileTypeButton(props: {
     useEffect(() => {
         (async () => {
             if (!img) {
-                setImg(await loadImage("./public/assets.png"));
+                setImg(await loadImage("./assets.png"));
             }
         })();
     }, []);

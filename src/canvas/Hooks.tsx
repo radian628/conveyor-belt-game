@@ -211,7 +211,7 @@ async function createWebGLState(
         format: gl.RGBA,
         width: 256,
         height: 64,
-        source: await loadImage("./public/assets.png")
+        source: await loadImage("./assets.png")
     });
     if (!gameAssetsTexture.ok) return err("Failed to create assets texture.");
 
