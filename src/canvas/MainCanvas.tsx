@@ -24,9 +24,15 @@ export function MainCanvas(props: {
         topleft?: [number, number],
         bottomright?: [number, number]
     },
+    cacheLevel?: (level: Level) => void,
+    cachePlayLevel?: (level: Level) => void,
+    cacheLevelRef?: React.MutableRefObject<boolean>,
+    cachePlayLevelRef?: React.MutableRefObject<boolean>,
     downloadLevelRef?: React.MutableRefObject<boolean>,
     forceRefreshRef?: React.MutableRefObject<boolean>,
-    isEditor: boolean
+    isEditor: boolean,
+    isTrying: boolean,
+    notifyLevelComplete: () => void
 }) {
     wrapper = 1 - wrapper;
     const canvasRef = useRef<HTMLCanvasElement>();
@@ -35,6 +41,16 @@ export function MainCanvas(props: {
     useEffect(() => {
         initLevelRef.current = props.initLevel;
     }, [props.initLevel]);
+
+    const isEditorRef = useRef(props.isEditor);
+    useEffect(() => {
+        isEditorRef.current = props.isEditor;
+    }, [props.isEditor]);
+
+    const isTryingRef = useRef(props.isTrying);
+    useEffect(() => {
+        isTryingRef.current = props.isTrying;
+    }, [props.isTrying]);
 
     const inputRef = useInput(canvasRef);
 
@@ -63,8 +79,8 @@ export function MainCanvas(props: {
     (time, gls) => {
         const gl = gls.gl;
 
-        if (props.downloadLevelRef && props.downloadLevelRef.current) {
-            props.downloadLevelRef.current = false;
+        function getAllPixels() {
+
             bindTexture(gl, gl.TEXTURE_2D, 0, gls.currentFramebuffer.attachments[0].tex);
             const pixelsDst = new Uint32Array(
                 gls.currentFramebuffer.attachments[0].width
@@ -79,6 +95,13 @@ export function MainCanvas(props: {
                 pixelsDst
             );
 
+            return pixelsDst;
+        }
+
+        if (props.downloadLevelRef && props.downloadLevelRef.current) {
+            props.downloadLevelRef.current = false;
+            const pixelsDst = getAllPixels();
+
             const level: Level = {
                 width: gls.currentFramebuffer.attachments[0].width,
                 height: gls.currentFramebuffer.attachments[0].height,
@@ -86,6 +109,32 @@ export function MainCanvas(props: {
             }
 
             saveAs(new Blob([JSON.stringify(level)]), "level.mathmachine");
+        }
+        if (props.cacheLevelRef && props.cacheLevelRef.current) {
+            console.log("caching level...")
+            props.cacheLevelRef.current = false;
+            const pixelsDst = getAllPixels();
+
+            const level: Level = {
+                width: gls.currentFramebuffer.attachments[0].width,
+                height: gls.currentFramebuffer.attachments[0].height,
+                data: Array.from(pixelsDst)
+            }
+
+            if (props.cacheLevel) props.cacheLevel(level);
+        }
+        if (props.cachePlayLevelRef && props.cachePlayLevelRef.current) {
+            console.log("caching level...")
+            props.cachePlayLevelRef.current = false;
+            const pixelsDst = getAllPixels();
+
+            const level: Level = {
+                width: gls.currentFramebuffer.attachments[0].width,
+                height: gls.currentFramebuffer.attachments[0].height,
+                data: Array.from(pixelsDst)
+            }
+
+            if (props.cachePlayLevel) props.cachePlayLevel(level);
         }
 
         timeRef.current++;
@@ -138,7 +187,7 @@ export function MainCanvas(props: {
             gl.readPixels(gameMouseX, gameMouseY, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, outpixels);
             const decodedPixel = decodePixel(Array.from(outpixels) as [number, number, number, number]);
 
-            if (decodedPixel.editable || props.isEditor) {
+            if ((decodedPixel.editable && !isTryingRef.current) || isEditorRef.current) {
                 bindTexture(gl, gl.TEXTURE_2D, 0, gls.currentFramebuffer.attachments[0].tex);
                 gl.texSubImage2D(gl.TEXTURE_2D, 0, gameMouseX, gameMouseY, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, new Uint32Array(
                     createPixel(props.tileToPlaceRef.current)
@@ -180,16 +229,32 @@ export function MainCanvas(props: {
                 gl.COLOR_BUFFER_BIT, gl.NEAREST
             );
 
-            bindProgram(gl, gls.gameLogicProgram);
-            bindVertexArray(gl, gls.gameLogicVAO);
-            
-            bindTexture(gl, gl.TEXTURE_2D, 0, gls.prevFramebuffer.attachments[0].tex);
-            bindFramebuffer(gl, gl.DRAW_FRAMEBUFFER, gls.currentFramebuffer.framebuffer);
-            setUniforms(gl, gls.gameLogicProgram, {
-                in_tex: [0, "i"],
-            });
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
+                bindProgram(gl, gls.gameLogicProgram);
+                bindVertexArray(gl, gls.gameLogicVAO);
+                
+                bindTexture(gl, gl.TEXTURE_2D, 0, gls.prevFramebuffer.attachments[0].tex);
+                bindFramebuffer(gl, gl.DRAW_FRAMEBUFFER, gls.currentFramebuffer.framebuffer);
+                setUniforms(gl, gls.gameLogicProgram, {
+                    in_tex: [0, "i"],
+                });
+            if (!isEditorRef.current && isTryingRef.current) {
+                gl.drawArrays(gl.TRIANGLES, 0, 6);
+            }
 
+        }
+
+        if (!isEditorRef.current && timeRef.current % 90 == 50) {
+            let levelComplete = true;
+            const pixels = getAllPixels();
+            for (let i = 0; i < pixels.length; i+=4) {
+                const parsedPixel = decodePixel([pixels[i+0], pixels[i+1], pixels[i+2], pixels[i+3]]);
+                if (parsedPixel.type == Tile.OUTPUT) {
+                    levelComplete = false;
+                }
+            }
+            if (levelComplete) {
+                props.notifyLevelComplete();
+            }
         }
     });
 

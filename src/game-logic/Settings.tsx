@@ -199,16 +199,20 @@ export function Settings(props: {
     setGameState: (g: GameState) => void,
     downloadLevel: () => void,
     uploadLevel: (level: Level) => void,
-    isEditor: boolean
+    testLevel: () => void,
+    goBack: () => void,
+    isEditor: boolean,
+    isTrying: boolean,
+    toggleIsTrying: () => void
 }) {
 
     const [settings, setSettings] = useState<PixelProperties>({
         type: Tile.CONVERTER,
         num: 1,
         has_num: false,
-        grabber_length: 0,
+        grabber_length: 3,
         score: 0,
-        required_score: 0,
+        required_score: 10,
         direction: Direction.UP,
         operation: Operation.ADD,
         editable: false
@@ -306,6 +310,18 @@ export function Settings(props: {
         break;
     }
 
+    if (props.isTrying) {
+        return <div className="settings">
+            <div className="settings-group">
+                <button
+                    onClick={e => {
+                        props.toggleIsTrying();
+                    }}
+                >Go Back</button>
+            </div>
+        </div>
+    }
+
     return <div className="settings">
         <div className="settings-group">
             <TileTypeSelector
@@ -318,7 +334,8 @@ export function Settings(props: {
                         editable: tileType == Tile.CONVEYOR
                         || tileType == Tile.NONE
                         || tileType == Tile.GRABBER
-                        || tileType == Tile.CONVERTER
+                        || tileType == Tile.CONVERTER,
+                        has_num: tileType == Tile.INPUT || tileType == Tile.OUTPUT
                     });
                 }}
             ></TileTypeSelector>
@@ -326,37 +343,64 @@ export function Settings(props: {
         <div className="settings-group">
             {associatedTileSettings}
         </div>
-        <div className="settings-group">
-            <button
-                onClick={e => {
-                    props.setGameState(GameState.MENU);
-                }}
-            >Back to Main Menu</button>
-            <button
-                onClick={e => {
-                    props.downloadLevel();
-                }}
-            >Save Level</button>
-            <button
-                onClick={e => {
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.onchange = async e => {
-                        const file = (e.currentTarget as any as HTMLInputElement)?.files?.[0];
-                        if (!file) return;
-                        try {
-                            const parsedFile = JSON.parse(await file.text());
-                            if (typeof parsedFile.width != "number") throw "no width";
-                            if (typeof parsedFile.height != "number") throw "no height";
-                            if (!Array.isArray(parsedFile.data)) throw "no pixels";
-                            props.uploadLevel(parsedFile as Level);
-                        } catch (err) {
-                            window.alert("Failed to upload level: " + JSON.stringify(err));
+        { props.isEditor ? 
+        <React.Fragment>
+            <div className="settings-group">
+                <button
+                    onClick={e => {
+                        props.testLevel();
+                    }}
+                >Play Level</button>
+                <button
+                    onClick={e => {
+                        props.downloadLevel();
+                    }}
+                >Save Level</button>
+            </div>
+            <div className="settings-group">
+                <button
+                    onClick={e => {
+                        props.setGameState(GameState.MENU);
+                    }}
+                >Back to Main Menu</button>
+                <button
+                    onClick={e => {
+                        const input = document.createElement("input");
+                        input.type = "file";
+                        input.onchange = async e => {
+                            const file = (e.currentTarget as any as HTMLInputElement)?.files?.[0];
+                            if (!file) return;
+                            try {
+                                const parsedFile = JSON.parse(await file.text());
+                                if (typeof parsedFile.width != "number") throw "no width";
+                                if (typeof parsedFile.height != "number") throw "no height";
+                                if (!Array.isArray(parsedFile.data)) throw "no pixels";
+                                props.uploadLevel(parsedFile as Level);
+                            } catch (err) {
+                                window.alert("Failed to upload level: " + JSON.stringify(err));
+                            }
                         }
-                    }
-                    input.click();
-                }}
-            >Upload Level</button>
-        </div>
+                        input.click();
+                    }}
+                >Upload Level</button>
+            </div>
+        </React.Fragment> :
+        <React.Fragment>
+            <div className="settings-group">
+                <button
+                    onClick={e => {
+                        props.toggleIsTrying();
+                    }}
+                >Try Solution</button>
+            </div>
+            <div className="settings-group">
+                <button
+                    onClick={e => {
+                        props.goBack();
+                    }}
+                >Go Back</button>
+            </div>
+        </React.Fragment>
+        }
     </div>
 }

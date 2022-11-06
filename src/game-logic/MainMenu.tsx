@@ -17,6 +17,8 @@ export function MainMenu(props: {
 
     return <React.Fragment>
         <MainCanvas
+            isTrying={true}
+              notifyLevelComplete={() => {}}
             isEditor={false}
             initLevel={{
                 width, height, pixels,
