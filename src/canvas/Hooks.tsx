@@ -41,7 +41,7 @@ export function useAnimationFrame(callback: (time: number) => void) {
 
 
 
-async function loadImage(src: string) {
+export async function loadImage(src: string) {
     return new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
         img.onload = e => {
@@ -83,7 +83,6 @@ async function createWebGLState(
     gl: WebGL2RenderingContext, 
     init: InitWebGLStateProperties
 ): Promise<Result<WebGLState, string>> {
-    console.log("recreated webgl state", init.pixels);
     const program = getProgramFromStrings(gl, VERT_SHADER, FRAG_SHADER);
     if (!program.ok) return err("Failed to create shader program.");
 
@@ -299,7 +298,6 @@ export function useWebGLState(
     glStatus: Result<undefined, string>,
     windowSize: [number, number]
 } {
-    console.log("pixels in usewebglstate:", init.current.pixels);
     const stateRef = useRef<WebGLState>();
     const [webGLError, setWebGLError] = useState<Result<undefined, string>>(ok(undefined));
 
@@ -316,7 +314,6 @@ export function useWebGLState(
 
     useAnimationFrame(async (time) => {
         if (forceRefreshRef?.current) {
-            console.log("forced refresh");
             stateRef.current = undefined;
             forceRefreshRef.current = false;
         }

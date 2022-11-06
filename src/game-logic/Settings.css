@@ -1,0 +1,57 @@
+
+
+.settings {
+    top: 0px;
+    left: 0px;
+    position: absolute;
+    background: #00000088;
+    width: 20%;
+    height: 100%;
+    color: white;
+    font-family: sans-serif;
+}
+
+.tile-type-selector {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.tile-type-button {
+    width: 8vh;
+    height: 8vh;
+    will-change: transform;
+    padding: 0px;
+    word-wrap: break-word;
+    font-size: 12px;
+    background: #00000055;
+    margin: 4px;
+}
+
+.tile-type-button canvas {
+    width: 8vh;
+    height: 8vh;
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    filter: brightness(0.3);
+}
+
+.tile-type-button span {
+    width: 8vh;
+    position: absolute;
+    top: 3vh;
+    display: block;
+    z-index: 2;
+    color: white;
+}
+
+.set-tile-type-button {
+    outline: 4px solid white;
+}
+
+.settings-group {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid white;
+}

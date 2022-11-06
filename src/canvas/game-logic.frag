@@ -98,6 +98,9 @@ GETSET(g_num, s_num, g, 2u, 16u)
 GETSET(g_score, s_score, b, 1u, 8u)
 GETSET(g_required_score, s_required_score, b, 9u, 16u)
 
+// a channel
+GETSET(g_editable, s_editable, a, 1u, 1u)
+
 //METAPROGRAMMING_END
 
 //COMMON_END
@@ -228,7 +231,7 @@ void move_number (in uvec4 s, inout uvec4 o) {
         }
 
         if (g_type(s) == OUTPUT) {
-            if (g_num(s) == g_num(pixel)) {
+            if (g_num(s) == g_num(pixel) && g_has_num(pixel) == 1u) {
                 s_score(o, g_score(s) + 1u);
             }
         } else if (g_has_num(pixel) == 1u) {
@@ -310,7 +313,7 @@ void main() {
 
     case OUTPUT:
         s_has_num(o, 1u);
-        if (g_score(s) > g_required_score(s)) {
+        if (g_score(s) >= g_required_score(s)) {
             s_type(o, COMPLETE);
         }
         break;

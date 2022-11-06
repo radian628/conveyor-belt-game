@@ -17,6 +17,7 @@ export function MainMenu(props: {
 
     return <React.Fragment>
         <MainCanvas
+            isEditor={false}
             initLevel={{
                 width, height, pixels,
                 topleft: [0.2, 0.2],

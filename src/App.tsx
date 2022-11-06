@@ -18,11 +18,12 @@ function App() {
         type: Tile.CONVERTER,
         num: 1,
         has_num: false,
-        grabber_length: 0,
+        grabber_length: 3,
         score: 0,
-        required_score: 0,
+        required_score: 10,
         direction: Direction.UP,
-        operation: Operation.ADD
+        operation: Operation.ADD,
+        editable: false
     });
 
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -39,7 +40,8 @@ function App() {
           num: 1,
           operation: Operation.ADD,
           score: 0,
-          required_score: 0
+          required_score: 0,
+          editable: false
       });
     }).flat())
   });
@@ -56,10 +58,12 @@ function App() {
         ></MainMenu>
         : <React.Fragment>
             <MainCanvas 
+              isEditor={gameState == GameState.LEVEL_EDITOR}
             forceRefreshRef={forceRefreshRef}
             downloadLevelRef={downloadLevelRef}
             initLevel={gameInit} tileToPlaceRef={tileToPlaceRef}></MainCanvas>
             <Settings
+              isEditor={gameState == GameState.LEVEL_EDITOR}
               downloadLevel={() => {
                 downloadLevelRef.current = true;
               }}

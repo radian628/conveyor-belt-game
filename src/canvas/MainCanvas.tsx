@@ -7,7 +7,7 @@ import { mat4, vec3 } from "gl-matrix";
 import { useInput } from "./Input";
 import { bindTexture } from "../webgl-helpers/Texture";
 import { bindFramebuffer } from "../webgl-helpers/Framebuffer";
-import { createPixel, Direction, makePixel, Operation, PixelProperties, Tile } from "../game-logic/GameLogic";
+import { createPixel, decodePixel, Direction, makePixel, Operation, PixelProperties, Tile } from "../game-logic/GameLogic";
 import { Level } from "../game-logic/Level";
 
 import { saveAs } from "file-saver";
@@ -25,10 +25,10 @@ export function MainCanvas(props: {
         bottomright?: [number, number]
     },
     downloadLevelRef?: React.MutableRefObject<boolean>,
-    forceRefreshRef?: React.MutableRefObject<boolean>
+    forceRefreshRef?: React.MutableRefObject<boolean>,
+    isEditor: boolean
 }) {
     wrapper = 1 - wrapper;
-    console.log("pixels in maincanvas:", props.initLevel.pixels);
     const canvasRef = useRef<HTMLCanvasElement>();
 
     const initLevelRef = useRef(props.initLevel);
@@ -85,8 +85,6 @@ export function MainCanvas(props: {
                 data: Array.from(pixelsDst)
             }
 
-            console.log(level.data, level.data);
-
             saveAs(new Blob([JSON.stringify(level)]), "level.mathmachine");
         }
 
@@ -135,10 +133,18 @@ export function MainCanvas(props: {
         if (inputRef.current.isMouseDown[2] && props.tileToPlaceRef) {
             const gameMouseX = Math.floor(worldMouseX * gls.currentFramebuffer.attachments[0].width);
             const gameMouseY = Math.floor(worldMouseY * gls.currentFramebuffer.attachments[0].height); 
-            bindTexture(gl, gl.TEXTURE_2D, 0, gls.currentFramebuffer.attachments[0].tex);
-            gl.texSubImage2D(gl.TEXTURE_2D, 0, gameMouseX, gameMouseY, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, new Uint32Array(
-                createPixel(props.tileToPlaceRef.current)
-            ));
+
+            const outpixels = new Uint32Array(4);
+            gl.readPixels(gameMouseX, gameMouseY, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, outpixels);
+            const decodedPixel = decodePixel(Array.from(outpixels) as [number, number, number, number]);
+
+            if (decodedPixel.editable || props.isEditor) {
+                bindTexture(gl, gl.TEXTURE_2D, 0, gls.currentFramebuffer.attachments[0].tex);
+                gl.texSubImage2D(gl.TEXTURE_2D, 0, gameMouseX, gameMouseY, 1, 1, gl.RGBA_INTEGER, gl.UNSIGNED_INT, new Uint32Array(
+                    createPixel(props.tileToPlaceRef.current)
+                ));
+            }
+
         }
         
         bindFramebuffer(gl, gl.DRAW_FRAMEBUFFER, null);
@@ -160,7 +166,7 @@ export function MainCanvas(props: {
         });
         gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-        if (timeRef.current % 1 == 0) {
+        if (timeRef.current % 20 == 10) {
 
             const gameGridWidth = gls.currentFramebuffer.attachments[0].width;
             const gameGridHeight = gls.currentFramebuffer.attachments[0].height;

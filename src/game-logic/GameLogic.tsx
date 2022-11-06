@@ -33,7 +33,8 @@ export type PixelProperties = {
     has_num: boolean,
     num: number,
     score: number,
-    required_score: number
+    required_score: number,
+    editable: boolean
 };
 
 export type PixelSpecification = Map<string, PixelState>;
@@ -78,4 +79,12 @@ export function makePixel(p: PixelProperties, spec: PixelSpecification):
 const pspec = getPixelSpec(COMMON_GLSL);
 export function createPixel(p: PixelProperties) {
     return makePixel(p, pspec);
+}
+export function decodePixel(p: [number, number, number, number]): PixelProperties {
+    const pixelProps: Partial<PixelProperties> = {};
+    for (let [k, v] of pspec.entries()) {
+        //@ts-ignore
+        pixelProps[k as keyof PixelProperties] = (p[v.channel] >> (v.start - 1)) & ((1 << (v.end - v.start + 1)) - 1);
+    }
+    return pixelProps as PixelProperties;
 }

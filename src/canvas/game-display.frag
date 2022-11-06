@@ -78,6 +78,9 @@ GETSET(g_num, s_num, g, 2u, 16u)
 GETSET(g_score, s_score, b, 1u, 8u)
 GETSET(g_required_score, s_required_score, b, 9u, 16u)
 
+// a channel
+GETSET(g_editable, s_editable, a, 1u, 1u)
+
 //METAPROGRAMMING_END
 
 //COMMON_END
