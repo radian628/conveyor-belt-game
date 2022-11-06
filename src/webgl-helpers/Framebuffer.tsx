@@ -1,7 +1,7 @@
 import { err, ok, Result } from "./Common";
 import { createTextureWithFormat, TextureFormatOptions, TextureOptions } from "./Texture";
 
-const framebufferBindings = new Map<number, WebGLFramebuffer | null>();
+export const framebufferBindings = new Map<number, WebGLFramebuffer | null>();
 export function bindFramebuffer(gl: WebGL2RenderingContext, target: number, framebuffer: WebGLFramebuffer | null) {
   if (framebufferBindings.get(target) !== framebuffer) {
     gl.bindFramebuffer(target, framebuffer);

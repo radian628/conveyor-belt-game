@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { err, ok, Result } from "../webgl-helpers/Common";
+import React, { useEffect, useRef, useState } from "react";
+import { clearBindingCache, err, ok, Result } from "../webgl-helpers/Common";
 import VERT_SHADER from "./l-system.vert?raw";
 import FRAG_SHADER from "./l-system.frag?raw";
 import { getProgramFromStrings } from "../webgl-helpers/Shader";
@@ -7,6 +7,8 @@ import { createBuffer, createBufferWithData } from "../webgl-helpers/Buffer";
 import { createVertexArray } from "../webgl-helpers/VertexArray";
 import { mat4, vec3 } from "gl-matrix";
 import { bindFramebuffer, createFramebufferWithAttachments, FramebufferWithAttachments } from "../webgl-helpers/Framebuffer";
+
+import { getPixelSpec, makePixel, Operation, PixelProperties, Tile } from '../game-logic/GameLogic';
 
 
 import LOGIC_VERT from "./game-logic.vert?raw";
@@ -51,6 +53,8 @@ async function loadImage(src: string) {
 
 
 
+type InitWebGLStateProperties = { pixels: Uint32Array, width: number, height: number };
+
 type WebGLState = {
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
@@ -75,10 +79,14 @@ type WebGLState = {
 }
 
 
-async function createWebGLState(gl: WebGL2RenderingContext): Promise<Result<WebGLState, string>> {
+async function createWebGLState(
+    gl: WebGL2RenderingContext, 
+    init: InitWebGLStateProperties
+): Promise<Result<WebGLState, string>> {
+    console.log("recreated webgl state", init.pixels);
     const program = getProgramFromStrings(gl, VERT_SHADER, FRAG_SHADER);
     if (!program.ok) return err("Failed to create shader program.");
-    
+
     const buf = createBufferWithData(gl, new Float32Array([
         -1, -1, 1, -1, -1, 1, 
         1, -1, -1, 1, 1, 1
@@ -148,8 +156,8 @@ async function createWebGLState(gl: WebGL2RenderingContext): Promise<Result<WebG
             twrap: gl.REPEAT
         },
         format: {
-            width: 64,
-            height: 64,
+            width: init.width,
+            height: init.height,
             internalformat: gl.RGBA32UI,
             format: gl.RGBA_INTEGER,
             type: gl.UNSIGNED_INT
@@ -234,10 +242,7 @@ async function createWebGLState(gl: WebGL2RenderingContext): Promise<Result<WebG
     const gameGridWidth = currentFramebuffer.data.attachments[0].width;
     const gameGridHeight = currentFramebuffer.data.attachments[0].height;
 
-    const gameLogic = new Uint32Array((new Array(gameGridWidth * gameGridHeight * 4)).fill(0).map((e,i) => {
-        return Math.floor(Math.random() * (2 ** 10));
-    }));
-
+    const gameLogic = init.pixels;
     bindTexture(gl, gl.TEXTURE_2D, 0, currentFramebuffer.data.attachments[0].tex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gameGridWidth, gameGridHeight, gl.RGBA_INTEGER, gl.UNSIGNED_INT, gameLogic);
     bindTexture(gl, gl.TEXTURE_2D, 0, prevFramebuffer.data.attachments[0].tex);
@@ -279,19 +284,22 @@ async function createWebGLState(gl: WebGL2RenderingContext): Promise<Result<WebG
         gameLogicVAO: gameLogicVAO.data,
         gameDisplayVAO: gameDisplayVAO.data,
 
-        temporaryGameLogicTexture: temporaryGameLogicTexture.data
+        temporaryGameLogicTexture: temporaryGameLogicTexture.data,
     });
 }
 
 
 
 export function useWebGLState(
-    canvasRef: React.RefObject<HTMLCanvasElement>, 
+    canvasRef: React.MutableRefObject<HTMLCanvasElement | undefined>, 
+    init: React.MutableRefObject<InitWebGLStateProperties>,
+    forceRefreshRef: React.MutableRefObject<boolean> | undefined,
     callback: (time: number, gls: WebGLState) => void
 ): {
     glStatus: Result<undefined, string>,
     windowSize: [number, number]
 } {
+    console.log("pixels in usewebglstate:", init.current.pixels);
     const stateRef = useRef<WebGLState>();
     const [webGLError, setWebGLError] = useState<Result<undefined, string>>(ok(undefined));
 
@@ -299,20 +307,25 @@ export function useWebGLState(
 
     useEffect(() => {
         window.addEventListener("resize", e => {
-            stateRef.current = undefined;
             if (canvasRef.current) {
                 canvasRef.current.width = window.innerWidth;
                 canvasRef.current.height = window.innerHeight;
             }
         });
-    })
+    }, [])
 
     useAnimationFrame(async (time) => {
+        if (forceRefreshRef?.current) {
+            console.log("forced refresh");
+            stateRef.current = undefined;
+            forceRefreshRef.current = false;
+        }
         const gl = canvasRef.current?.getContext("webgl2");
         if (!gl) return setWebGLError(err("Failed to create WebGL context."));
 
         if (!stateRef.current) {
-            const state = await createWebGLState(gl);
+            clearBindingCache();
+            const state = await createWebGLState(gl, init.current);
 
             if (!state.ok) return setWebGLError(err(state.data));
 

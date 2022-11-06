@@ -7,6 +7,8 @@
 #define CONVERTER 3u
 #define INPUT 4u
 #define OUTPUT 5u
+#define WALL 6u
+#define COMPLETE 7u
 
 // direction
 #define UP 0u
@@ -26,7 +28,7 @@ uint get_bits(uint bitfield, uint start, uint end) {
 }
 
 uint bitmask(uint start, uint end) {
-    return ((1u << (end + 1u)) - 1u) - ((1u << (start - 1u)) - 1u);
+    return ((1u << (end)) - 1u) - ((1u << (start - 1u)) - 1u);
 }
 
 void set_bits(inout uint o, uint bits, uint start, uint end) {

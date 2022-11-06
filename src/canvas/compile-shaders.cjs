@@ -1,7 +1,7 @@
 const fs = require("node:fs/promises");
 
 (async () => {
-    const shaderCommon = await fs.readFile("./common.glsl");
+    const shaderCommon = await fs.readFile("common.glsl");
 
     const files = await fs.readdir(__dirname);
     for (const file of files) {

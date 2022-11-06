@@ -1,6 +1,6 @@
 import { err, ok, Result } from "./Common";
 
-const textureBindings = new Map<number, Map<number, WebGLTexture>>();
+export const textureBindings = new Map<number, Map<number, WebGLTexture>>();
 export function bindTexture(gl: WebGL2RenderingContext, target: number, unit: number, texture: WebGLTexture) {
   const targetBindings = textureBindings.get(target);
   if (targetBindings?.get(unit) !== texture) {

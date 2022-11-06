@@ -41,6 +41,8 @@ g channel:
 #define CONVERTER 3u
 #define INPUT 4u
 #define OUTPUT 5u
+#define WALL 6u
+#define COMPLETE 7u
 
 // direction
 #define UP 0u
@@ -60,7 +62,7 @@ uint get_bits(uint bitfield, uint start, uint end) {
 }
 
 uint bitmask(uint start, uint end) {
-    return ((1u << (end + 1u)) - 1u) - ((1u << (start - 1u)) - 1u);
+    return ((1u << (end)) - 1u) - ((1u << (start - 1u)) - 1u);
 }
 
 void set_bits(inout uint o, uint bits, uint start, uint end) {
@@ -125,29 +127,42 @@ ivec2 get_unit_offset(uvec4 pixel) {
     return get_unit_offset_from_dir(direction);
 }
 
-void handle_conveyor(uvec4 s, inout uvec4 o) {
-    ivec2 offset = get_unit_offset(s);
-    offset *= -1 * ((g_type(s) == GRABBER) ? int(g_grabber_length(s)) : 1);
-    uvec4 past = getpixel(offset);
+uint dir_cw(uint dir) {
+    uint[4] cw_lut = uint[4](RIGHT, LEFT, UP, DOWN);
+    return cw_lut[dir];
+}
 
-    switch (g_type(past)) {
-    case CONVEYOR:
-    case CONVERTER:
-        s_num(o, g_num(past));
-        s_has_num(o, g_has_num(past));
-        break;
-    case INPUT:
-        s_num(o, g_num(past));
-        s_has_num(o, 1u);
-        break;
-    }
+uint dir_ccw(uint dir) {
+    uint[4] ccw_lut = uint[4](LEFT, RIGHT, DOWN, UP);
+    return ccw_lut[dir];
+}
+
+bool is_valid_belt_pointing_towards(uint dir) {
+    ivec2 offset = get_unit_offset_from_dir(dir);
+    uvec4 pixel = getpixel(offset);
+    return g_type(pixel) == CONVEYOR && dir_cw(dir_cw(g_direction(pixel))) == dir;
+}
+bool is_valid_belt_pointing_away(uint dir) {
+    ivec2 offset = get_unit_offset_from_dir(dir);
+    uvec4 pixel = getpixel(offset);
+    return g_type(pixel) == CONVEYOR && g_direction(pixel) == dir;
 }
 
 void handle_converter(uvec4 s, inout uvec4 o) {
     uint op = g_operation(s);
+    uint dir = g_direction(s);
+
+    uint src_dir1 = dir_cw(dir);
+    uint src_dir2 = dir_ccw(dir);
+
+    bool dst_isvalid = is_valid_belt_pointing_away(dir);
+    bool src1_isvalid = is_valid_belt_pointing_towards(src_dir1);
+    bool src2_isvalid = is_valid_belt_pointing_towards(src_dir2);
+    if (!dst_isvalid || !src1_isvalid || !src2_isvalid) return;
+
     ivec2 dst_offset = get_unit_offset(s);
-    ivec2 src_offset1 = ivec2(-dst_offset.y, dst_offset.x);
-    ivec2 src_offset2 = -1 * src_offset1;
+    ivec2 src_offset1 = get_unit_offset_from_dir(src_dir1);
+    ivec2 src_offset2 = get_unit_offset_from_dir(src_dir2);
     
     uvec4 src_pixel1 = getpixel(src_offset1);
     uvec4 src_pixel2 = getpixel(src_offset2);
@@ -200,24 +215,55 @@ void handle_output(uvec4 s, inout uvec4 o) {
 
 
 
-void move_number (inout uvec3 o) {
-    for (int i = 0; i < 4; i++) {
+void move_number (in uvec4 s, inout uvec4 o) {
+    if (g_type(s) == INPUT) return;
+    if (g_type(s) == CONVERTER) return;
+    
+    for (uint dir = 0u; dir < 4u; dir++) {
         ivec2 offset = get_unit_offset_from_dir(dir);
         uvec4 pixel = getpixel(-offset);
         
-        if (g_direction(pixel) != dir) {
+        if (g_direction(pixel) != dir || g_type(pixel) != CONVEYOR) {
             continue;
         }
 
-        if (g_num(pixel) != g_num(s)) {
-            continue;
+        if (g_type(s) == OUTPUT) {
+            if (g_num(s) == g_num(pixel)) {
+                s_score(o, g_score(s) + 1u);
+            }
+        } else if (g_has_num(pixel) == 1u) {
+            s_num(o, g_num(pixel));
+            s_has_num(o, g_has_num(pixel));
         }
-
-        delta_score++;
     }
 }
 
 
+
+void handle_grabber(in uvec4 s, inout uvec4 o) {
+    ivec2 offset = get_unit_offset(s) * int(g_grabber_length(s));
+    uvec4 pixel = getpixel(offset);
+    
+    if (g_has_num(pixel) == 1u) {
+        s_num(o, g_num(pixel));
+        s_has_num(o, g_has_num(pixel));
+    }
+}
+
+
+void handle_conveyor(uvec4 s, inout uvec4 o) {
+    ivec2 offset = get_unit_offset(s);
+    uvec4 past = getpixel(-offset);
+
+    switch (g_type(past)) {
+    case INPUT:
+    case CONVERTER:
+    case GRABBER:
+        s_num(o, g_num(past));
+        s_has_num(o, g_has_num(past));
+        break;
+    }
+}
 
 
 void main() {
@@ -237,30 +283,42 @@ void main() {
     // g channel
     uint num_val = g_num(s);
 
+
     uvec4 o = s;
+    s_has_num(o, 0u);
 
-    move_number(o);
+    move_number(s, o);
 
-    // switch (type) {
+    switch (type) {
     // case NONE:
     //     break;
+    case CONVEYOR:
+        handle_conveyor(s, o);
+        break;
+    case GRABBER:
 
-    // case GRABBER:
-    // case CONVEYOR:
-    //     handle_conveyor(s, o);
-    //     break;
+        handle_grabber(s, o);
+        break;
 
-    // case CONVERTER:
-    //     handle_converter(s, o);
-    //     break;
+    case CONVERTER:
+        handle_converter(s, o);
+        break;
 
-    // case INPUT:
-    //     break;
+    case INPUT:
+        s_has_num(o, 1u);
+        break;
+
+    case OUTPUT:
+        s_has_num(o, 1u);
+        if (g_score(s) > g_required_score(s)) {
+            s_type(o, COMPLETE);
+        }
+        break;
 
     // case OUTPUT:
     //     handle_output(s, o);
     //     break;
-    // }
+    }
 
     out_tex = o;
 }

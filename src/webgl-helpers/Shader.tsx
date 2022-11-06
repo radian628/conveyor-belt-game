@@ -1,14 +1,17 @@
 import { err, ok, Result } from "./Common";
 
-let programBinding: WebGLProgram;
+export let programBinding: WebGLProgram;
 export function bindProgram(gl: WebGL2RenderingContext, program: WebGLProgram) {
   if (programBinding !== program) {
     gl.useProgram(program);
     programBinding = program;
   }
 }
+export function setProgramBinding(binding: WebGLProgram) {
+  programBinding = binding;
+}
 
-let shaderCache = new Map<string, WebGLShader>();
+export let shaderCache = new Map<string, WebGLShader>();
 
 export function getShader(gl: WebGL2RenderingContext, type: number, source: string): Result<WebGLShader, string> {
   const cachedShader = shaderCache.get(source);

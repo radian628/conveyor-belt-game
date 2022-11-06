@@ -17,3 +17,10 @@ GPU Shader State:
     - conveyor belt (with four directions)
     - grabber (with four directions and lengths)
     - converter (add, sub, mul, div)
+
+
+# TODO List:
+- Main menu with levels
+- Level creator
+- Level upload
+- 

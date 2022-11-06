@@ -1,6 +1,6 @@
 import { Result, resultify } from "./Common";
 
-const bufferBindings = new Map<number, WebGLBuffer>();
+export const bufferBindings = new Map<number, WebGLBuffer>();
 export function bindBuffer(gl: WebGL2RenderingContext, target: number, buffer: WebGLBuffer, force?: boolean) {
   if (bufferBindings.get(target) !== buffer || force) {
     gl.bindBuffer(target, buffer);
