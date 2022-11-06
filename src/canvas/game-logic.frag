@@ -31,6 +31,7 @@ g channel:
             number that is on them
 */
 
+
 //COMMON_START
 
 // data types
@@ -54,16 +55,17 @@ g channel:
 #define DIV 3u
 
 uint get_bits(uint bitfield, uint start, uint end) {
-    return (bitfield >> start) & ((2u << (end - start)) - 1u);
+    return (bitfield >> (start - 1u)) 
+        & ((1u << (end - start)) + ((1u << (end - start)) - 1u));
 }
 
 uint bitmask(uint start, uint end) {
-    return ((1u << (end)) - 1u) - ((1u << (start - 1u)) - 1u);
+    return ((1u << (end + 1u)) - 1u) - ((1u << (start - 1u)) - 1u);
 }
 
-void set_bits(out uint o, uint bits, uint start, uint end) {
+void set_bits(inout uint o, uint bits, uint start, uint end) {
     o &= ~bitmask(start, end);
-    o += bits >> start;
+    o += bits << (start - 1u);
 }
 
 uvec4 getpixel(ivec2 offset) {
@@ -75,24 +77,24 @@ uvec4 getpixel(ivec2 offset) {
 uint gettername(uvec4 cell) { \
     return get_bits(cell.channel, start, end); \
 } \
-void settername(out uvec4 cell, uint value) { \
+void settername(inout uvec4 cell, uint value) { \
     set_bits(cell.channel, value, start, end); \
 }
 
 //METAPROGRAMMING_START
 // r channel
-GETSET(g_type, s_type, r, 0u, 2u)
-GETSET(g_direction, s_direction, r, 3u, 4u)
-GETSET(g_grabber_length, s_grabber_length, r, 5u, 7u)
-GETSET(g_operation, s_operation, r, 8u, 11u)
+GETSET(g_type, s_type, r, 1u, 3u)
+GETSET(g_direction, s_direction, r, 4u, 5u)
+GETSET(g_grabber_length, s_grabber_length, r, 6u, 8u)
+GETSET(g_operation, s_operation, r, 9u, 12u)
 
 // g channel
-GETSET(g_num, s_num, g, 0u, 30u)
-GETSET(g_has_num, s_has_num, g, 31u, 31u)
+GETSET(g_has_num, s_has_num, g, 1u, 1u)
+GETSET(g_num, s_num, g, 2u, 16u)
 
 // b channel
-GETSET(g_score, s_score, b, 0u, 7u)
-GETSET(g_required_score, s_required_score, b, 8u, 15u)
+GETSET(g_score, s_score, b, 1u, 8u)
+GETSET(g_required_score, s_required_score, b, 9u, 16u)
 
 //METAPROGRAMMING_END
 
@@ -123,7 +125,7 @@ ivec2 get_unit_offset(uvec4 pixel) {
     return get_unit_offset_from_dir(direction);
 }
 
-void handle_conveyor(uvec4 s, out uvec4 o) {
+void handle_conveyor(uvec4 s, inout uvec4 o) {
     ivec2 offset = get_unit_offset(s);
     offset *= -1 * ((g_type(s) == GRABBER) ? int(g_grabber_length(s)) : 1);
     uvec4 past = getpixel(offset);
@@ -141,7 +143,7 @@ void handle_conveyor(uvec4 s, out uvec4 o) {
     }
 }
 
-void handle_converter(uvec4 s, out uvec4 o) {
+void handle_converter(uvec4 s, inout uvec4 o) {
     uint op = g_operation(s);
     ivec2 dst_offset = get_unit_offset(s);
     ivec2 src_offset1 = ivec2(-dst_offset.y, dst_offset.x);
@@ -174,7 +176,7 @@ void handle_converter(uvec4 s, out uvec4 o) {
     s_has_num(o, ((g_has_num(src_pixel1) == 1u) && (g_has_num(src_pixel2) == 1u)) ? 1u : 0u);
 }
 
-void handle_output(uvec4 s, out uvec4 o) {
+void handle_output(uvec4 s, inout uvec4 o) {
     uint delta_score = 0u;
     
     for (uint dir = 0u; dir < 4u; dir++) {
@@ -195,8 +197,37 @@ void handle_output(uvec4 s, out uvec4 o) {
     s_score(o, g_score(s) + delta_score);
 }
 
+
+
+
+void move_number (inout uvec3 o) {
+    for (int i = 0; i < 4; i++) {
+        ivec2 offset = get_unit_offset_from_dir(dir);
+        uvec4 pixel = getpixel(-offset);
+        
+        if (g_direction(pixel) != dir) {
+            continue;
+        }
+
+        if (g_num(pixel) != g_num(s)) {
+            continue;
+        }
+
+        delta_score++;
+    }
+}
+
+
+
+
 void main() {
     uvec4 s = texture(in_tex, texcoord);
+
+    //s.g += 2u;
+    // s_num(s, g_num(s) + 1u);
+
+    // out_tex = s;
+    // return;
 
     // r channel
     uint type = g_type(s);
@@ -206,29 +237,30 @@ void main() {
     // g channel
     uint num_val = g_num(s);
 
-    uvec4 o = uvec4(0);
+    uvec4 o = s;
 
-    switch (type) {
-    case NONE:
-        s_type(o, NONE);
-        break;
+    move_number(o);
 
-    case GRABBER:
-    case CONVEYOR:
-        handle_conveyor(s, o);
-        break;
+    // switch (type) {
+    // case NONE:
+    //     break;
 
-    case CONVERTER:
-        handle_converter(s, o);
-        break;
+    // case GRABBER:
+    // case CONVEYOR:
+    //     handle_conveyor(s, o);
+    //     break;
 
-    case INPUT:
-        break;
+    // case CONVERTER:
+    //     handle_converter(s, o);
+    //     break;
 
-    case OUTPUT:
-        handle_output(s, o);
-        break;
-    }
+    // case INPUT:
+    //     break;
+
+    // case OUTPUT:
+    //     handle_output(s, o);
+    //     break;
+    // }
 
     out_tex = o;
 }

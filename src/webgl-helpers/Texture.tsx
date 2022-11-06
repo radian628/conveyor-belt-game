@@ -37,25 +37,49 @@ export function createTexture(
   return ok(tex);
 }
 
-export type TextureFormatOptions = {
-  width: number, 
-  height: number, 
+export type TextureFormat = {
   internalformat: number,
   format: number,
   type: number
-};
+}
+
+export type TextureSize = {
+  width: number, 
+  height: number, 
+  source?: TexImageSource | Uint32Array
+}
+
+export type TextureFormatOptions = (
+  TextureSize & TextureSize
+) & TextureFormat;
 
 export function declareTextureFormat(gl: WebGL2RenderingContext, 
   tex: WebGLTexture,
   options: TextureFormatOptions
 ) {
   bindTexture(gl, gl.TEXTURE_2D, 0, tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, 
-    options.internalformat, 
-    options.width, 
-    options.height, 0, 
-    options.format, 
-    options.type, null);
+  if (options.source instanceof Uint32Array) {
+    gl.texImage2D(gl.TEXTURE_2D, 0, 
+      options.internalformat, 
+      options.width, 
+      options.height, 0, 
+      options.format, 
+      options.type, options.source);
+  } else if (options.source) {
+    gl.texImage2D(gl.TEXTURE_2D, 0, 
+      options.internalformat, 
+      options.width, 
+      options.height, 0, 
+      options.format, 
+      options.type, options.source);
+  } else {
+    gl.texImage2D(gl.TEXTURE_2D, 0, 
+      options.internalformat, 
+      options.width, 
+      options.height, 0, 
+      options.format, 
+      options.type, null);
+  }
 }
 
 export function createTextureWithFormat(gl: WebGL2RenderingContext,

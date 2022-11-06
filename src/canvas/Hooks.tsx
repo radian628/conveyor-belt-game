@@ -8,6 +8,15 @@ import { createVertexArray } from "../webgl-helpers/VertexArray";
 import { mat4, vec3 } from "gl-matrix";
 import { bindFramebuffer, createFramebufferWithAttachments, FramebufferWithAttachments } from "../webgl-helpers/Framebuffer";
 
+
+import LOGIC_VERT from "./game-logic.vert?raw";
+import LOGIC_FRAG from "./game-logic.frag?raw";
+import DISPLAY_VERT from "./game-display.vert?raw";
+import DISPLAY_FRAG from "./game-display.frag?raw";
+import { bindTexture, createTexture, createTextureWithFormat } from "../webgl-helpers/Texture";
+
+import gameAssets from "../assets/assets.png";
+
 export function useAnimationFrame(callback: (time: number) => void) {
 
     const animFrameRef = useRef<number>(-1);
@@ -28,6 +37,20 @@ export function useAnimationFrame(callback: (time: number) => void) {
     }, []);
 }
 
+
+
+async function loadImage(src: string) {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = e => {
+            resolve(img);
+        }
+        img.src = src;
+    }) 
+}
+
+
+
 type WebGLState = {
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
@@ -38,11 +61,21 @@ type WebGLState = {
     cubeIndexBuffer: WebGLBuffer,
 
     currentFramebuffer: FramebufferWithAttachments,
-    prevFramebuffer: FramebufferWithAttachments
+    prevFramebuffer: FramebufferWithAttachments,
+
+    gameLogicProgram: WebGLProgram,
+    gameDisplayProgram: WebGLProgram,
+
+    gameAssetsTexture: WebGLTexture,
+
+    gameLogicVAO: WebGLVertexArrayObject,
+    gameDisplayVAO: WebGLVertexArrayObject,
+
+    temporaryGameLogicTexture: WebGLTexture
 }
 
 
-function createWebGLState(gl: WebGL2RenderingContext): Result<WebGLState, string> {
+async function createWebGLState(gl: WebGL2RenderingContext): Promise<Result<WebGLState, string>> {
     const program = getProgramFromStrings(gl, VERT_SHADER, FRAG_SHADER);
     if (!program.ok) return err("Failed to create shader program.");
     
@@ -115,8 +148,8 @@ function createWebGLState(gl: WebGL2RenderingContext): Result<WebGLState, string
             twrap: gl.REPEAT
         },
         format: {
-            width: 512,
-            height: 512,
+            width: 64,
+            height: 64,
             internalformat: gl.RGBA32UI,
             format: gl.RGBA_INTEGER,
             type: gl.UNSIGNED_INT
@@ -152,6 +185,81 @@ function createWebGLState(gl: WebGL2RenderingContext): Result<WebGLState, string
     }, cubeIndexBuffer.data);
     if (!v.ok) return (err("Failed to create VAO."));
 
+
+
+    const gameLogicProgram = getProgramFromStrings(gl, LOGIC_VERT, LOGIC_FRAG);
+    if (!gameLogicProgram.ok) return err("Failed to create shader program.");
+
+    const gameDisplayProgram = getProgramFromStrings(gl, DISPLAY_VERT, DISPLAY_FRAG);
+    if (!gameDisplayProgram.ok) return err("Failed to create shader program.");
+
+    const gameAssetsTexture = createTextureWithFormat(gl, {
+        min: gl.LINEAR,
+        mag: gl.LINEAR,
+        swrap: gl.REPEAT,
+        twrap: gl.REPEAT
+    }, {
+        type: gl.UNSIGNED_BYTE,
+        internalformat: gl.RGBA,
+        format: gl.RGBA,
+        width: 256,
+        height: 64,
+        source: await loadImage("./public/assets.png")
+    });
+    if (!gameAssetsTexture.ok) return err("Failed to create assets texture.");
+
+
+    const gameLogicVAO = createVertexArray(gl, gameLogicProgram.data, {
+        pos: {
+            size: 2,
+            type: gl.FLOAT,
+            offset: 0,
+            stride: 0,
+            buffer: buf.data
+        }
+    });
+    if (!gameLogicVAO.ok) return err("Failed to create game logic VAO.");
+
+    const gameDisplayVAO = createVertexArray(gl, gameDisplayProgram.data, {
+        pos: {
+            size: 2,
+            type: gl.FLOAT,
+            offset: 0,
+            stride: 0,
+            buffer: buf.data
+        }
+    });
+    if (!gameDisplayVAO.ok) return err("Failed to create game display VAO.");
+
+    const gameGridWidth = currentFramebuffer.data.attachments[0].width;
+    const gameGridHeight = currentFramebuffer.data.attachments[0].height;
+
+    const gameLogic = new Uint32Array((new Array(gameGridWidth * gameGridHeight * 4)).fill(0).map((e,i) => {
+        return Math.floor(Math.random() * (2 ** 10));
+    }));
+
+    bindTexture(gl, gl.TEXTURE_2D, 0, currentFramebuffer.data.attachments[0].tex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gameGridWidth, gameGridHeight, gl.RGBA_INTEGER, gl.UNSIGNED_INT, gameLogic);
+    bindTexture(gl, gl.TEXTURE_2D, 0, prevFramebuffer.data.attachments[0].tex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gameGridWidth, gameGridHeight, gl.RGBA_INTEGER, gl.UNSIGNED_INT, gameLogic);
+
+    const temporaryGameLogicTexture = createTextureWithFormat(gl, {
+        min: gl.NEAREST,
+        mag: gl.NEAREST,
+        swrap: gl.REPEAT,
+        twrap: gl.REPEAT
+    }, {
+        width: gameGridWidth,
+        height: gameGridHeight,
+        internalformat: gl.RGBA32UI,
+        type: gl.UNSIGNED_INT,
+        format: gl.RGBA_INTEGER,
+        source: gameLogic
+    });
+    if (!temporaryGameLogicTexture.ok) return err("Failed to create temp game logic texture.");
+
+
+
     return ok({
         gl,
         program: program.data,
@@ -163,6 +271,15 @@ function createWebGLState(gl: WebGL2RenderingContext): Result<WebGLState, string
 
         currentFramebuffer: currentFramebuffer.data,
         prevFramebuffer: prevFramebuffer.data,
+
+        gameLogicProgram: gameLogicProgram.data,
+        gameDisplayProgram: gameDisplayProgram.data,
+        gameAssetsTexture: gameAssetsTexture.data,
+
+        gameLogicVAO: gameLogicVAO.data,
+        gameDisplayVAO: gameDisplayVAO.data,
+
+        temporaryGameLogicTexture: temporaryGameLogicTexture.data
     });
 }
 
@@ -190,12 +307,12 @@ export function useWebGLState(
         });
     })
 
-    useAnimationFrame((time) => {
+    useAnimationFrame(async (time) => {
         const gl = canvasRef.current?.getContext("webgl2");
         if (!gl) return setWebGLError(err("Failed to create WebGL context."));
 
         if (!stateRef.current) {
-            const state = createWebGLState(gl);
+            const state = await createWebGLState(gl);
 
             if (!state.ok) return setWebGLError(err(state.data));
 

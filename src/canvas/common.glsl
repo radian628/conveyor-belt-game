@@ -1,4 +1,3 @@
-
 //COMMON_START
 
 // data types
@@ -22,16 +21,17 @@
 #define DIV 3u
 
 uint get_bits(uint bitfield, uint start, uint end) {
-    return (bitfield >> start) & ((2u << (end - start)) - 1u);
+    return (bitfield >> (start - 1u)) 
+        & ((1u << (end - start)) + ((1u << (end - start)) - 1u));
 }
 
 uint bitmask(uint start, uint end) {
-    return ((1u << (end)) - 1u) - ((1u << (start - 1u)) - 1u);
+    return ((1u << (end + 1u)) - 1u) - ((1u << (start - 1u)) - 1u);
 }
 
-void set_bits(out uint o, uint bits, uint start, uint end) {
+void set_bits(inout uint o, uint bits, uint start, uint end) {
     o &= ~bitmask(start, end);
-    o += bits >> start;
+    o += bits << (start - 1u);
 }
 
 uvec4 getpixel(ivec2 offset) {
@@ -43,24 +43,24 @@ uvec4 getpixel(ivec2 offset) {
 uint gettername(uvec4 cell) { \
     return get_bits(cell.channel, start, end); \
 } \
-void settername(out uvec4 cell, uint value) { \
+void settername(inout uvec4 cell, uint value) { \
     set_bits(cell.channel, value, start, end); \
 }
 
 //METAPROGRAMMING_START
 // r channel
-GETSET(g_type, s_type, r, 0u, 2u)
-GETSET(g_direction, s_direction, r, 3u, 4u)
-GETSET(g_grabber_length, s_grabber_length, r, 5u, 7u)
-GETSET(g_operation, s_operation, r, 8u, 11u)
+GETSET(g_type, s_type, r, 1u, 3u)
+GETSET(g_direction, s_direction, r, 4u, 5u)
+GETSET(g_grabber_length, s_grabber_length, r, 6u, 8u)
+GETSET(g_operation, s_operation, r, 9u, 12u)
 
 // g channel
-GETSET(g_num, s_num, g, 0u, 30u)
-GETSET(g_has_num, s_has_num, g, 31u, 31u)
+GETSET(g_has_num, s_has_num, g, 1u, 1u)
+GETSET(g_num, s_num, g, 2u, 16u)
 
 // b channel
-GETSET(g_score, s_score, b, 0u, 7u)
-GETSET(g_required_score, s_required_score, b, 8u, 15u)
+GETSET(g_score, s_score, b, 1u, 8u)
+GETSET(g_required_score, s_required_score, b, 9u, 16u)
 
 //METAPROGRAMMING_END
 
